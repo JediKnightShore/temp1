@@ -1,0 +1,106 @@
+public class DataModel
+{
+    public string Data { get; set; }
+}
+_____________________________________________
+
+public interface IDataView
+{
+    string Data { get; set; }
+    event EventHandler DataRequested;
+}
+__________________________________________________
+
+public class DataPresenter
+{
+    private readonly IDataView view;
+    private readonly DataModel model;
+
+    public DataPresenter(IDataView view, DataModel model)
+    {
+        this.view = view;
+        this.model = model;
+        this.view.DataRequested += OnDataRequested;
+    }
+
+    private void OnDataRequested(object sender, EventArgs e)
+    {
+        view.Data = model.Data;
+    }
+}
+__________________________________________________________________
+
+using Moq;
+using NUnit.Framework;
+
+[TestFixture]
+public class DataPresenterTests
+{
+    [Test]
+    public void Should_UpdateView_When_DataRequested()
+    {
+        // Arrange
+        var mockView = new Mock<IDataView>();
+        var model = new DataModel { Data = "Hello World" };
+        var presenter = new DataPresenter(mockView.Object, model);
+
+        // Act
+        mockView.Raise(m => m.DataRequested += null, EventArgs.Empty);
+
+        // Assert
+        mockView.VerifySet(v => v.Data = "Hello World");
+    }
+}
+
+___________________________________________________________________________________________________________________________________________________________________________________
+
+public partial class DataView : Form, IDataView
+{
+    public event EventHandler DataRequested;
+
+    public string Data
+    {
+        get => lblData.Text;
+        set => lblData.Text = value;
+    }
+
+    public DataView()
+    {
+        InitializeComponent();
+        btnRequestData.Click += (s, e) => DataRequested?.Invoke(this, EventArgs.Empty);
+    }
+}
+
+_________________________________________________________________________________________
+
+[TestFixture]
+public class DataViewTests
+{
+    [Test]
+    [ApartmentState(ApartmentState.STA)]
+    public void DataView_Should_DisplayData_When_DataRequested()
+    {
+        // Initialize the view
+        var view = new DataView();
+        string expectedData = "Test Data";
+        view.DataRequested += (sender, args) => view.Data = expectedData;
+
+        // Simulate the button click
+        FormTestHelper.ClickButton(view, "btnRequestData");
+
+        // Assert that the label text changes
+        Assert.AreEqual(expectedData, view.Data);
+    }
+}
+
+public static class FormTestHelper
+{
+    public static void ClickButton(Control form, string buttonName)
+    {
+        var button = form.Controls[buttonName] as Button;
+        if (button != null)
+        {
+            button.PerformClick();
+        }
+    }
+}
